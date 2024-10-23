@@ -118,14 +118,11 @@ class SwiftIDA(ida_idaapi.plugin_t):
         print(f">>>SwiftIDA: New type: {new_type}")
 
         ea = idc.get_screen_ea()
-        if idc.SetType(ea, new_type) != 1:
-            print(f">>>SwiftIDA: Failed setting type")
-            ida_kernwin.warning("Error setting type, check logs")
-            return
+        result = idc.SetType(ea, new_type)
+        if result != 1:
+            raise Exception("Failed to set type")
 
-        ida_kernwin.info(
-            "Type changed successfully.\n\nRefresh any existing pseudocode (F5).\n"
-        )
+        print(f">>>SwiftIDA: Type changed successfully")
 
     def add_callee_arg(self, i: int):
         global arch_special_regs
@@ -187,7 +184,11 @@ def generic_handler(callback):
             idaapi.action_handler_t.__init__(self)
 
         def activate(self, ctx):
-            callback()
+            try:
+                callback()
+            except Exception as e:
+                ida_kernwin.warning("There was an error, check logs")
+                raise e
             return 1
 
         def update(self, ctx):
