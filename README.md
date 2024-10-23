@@ -9,7 +9,7 @@ This is a simple plugin for IDA to aid with reverse engineering languages that h
 
 ## Usage
 
-Download `swiftida.py` and drop it in your IDA's `plugins` folder. After that, simply right-click on a function definition and you will see the `SwiftIDA` menu.
+Download `swift-ida.py` and drop it in your IDA's `plugins` folder. After that, simply right-click on a function definition and you will see the `SwiftIDA` menu.
 
 ![menu](docs/menu.png)
 
