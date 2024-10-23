@@ -96,6 +96,8 @@ class SwiftIDA(ida_idaapi.plugin_t):
                 base[i] = base[i][1:]
 
         ret_regs = [] if match.group(2) is None else match.group(2).split(", ")
+        if len(ret_regs) == 0 and base[0].lower() != "void":
+            ret_regs.append(f"0:{arch_ret_regs[0]}")
 
         args = [] if match.group(3) is None else match.group(3).split(", ")
         if "__fastcall" in base:
@@ -131,9 +133,6 @@ class SwiftIDA(ida_idaapi.plugin_t):
         base, ret_regs, args = self.parse_current_func_type()
         if base is None or ret_regs is None or args is None:
             return
-
-        if len(ret_regs) == 0 and base[0].lower() != "void":
-            ret_regs.append(f"0:{arch_ret_regs[0]}")
 
         if not any(f"@<{arch_special_regs[i]}>" in arg for arg in args):
             args.append(f"__int64@<{arch_special_regs[i]}>")
