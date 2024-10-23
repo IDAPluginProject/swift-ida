@@ -159,7 +159,7 @@ class SwiftIDA(ida_idaapi.plugin_t):
         if base is None or ret_regs is None or args is None:
             return
 
-        base[0] = f"tuple{i}"
+        base[0] = struct_name
 
         ret_regs = [f"{j*8}:{arch_ret_regs[j]}" for j in range(i)]
 
