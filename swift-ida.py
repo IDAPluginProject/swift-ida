@@ -2,7 +2,6 @@ import ida_idaapi
 import ida_kernwin
 import idc
 import re
-import idaapi
 import ida_ida
 
 # TODO: This is very rudimentary and prone to breakage, e.g. on lambda functions
@@ -16,7 +15,7 @@ arch_special_regs = []
 
 
 class SwiftIDA(ida_idaapi.plugin_t):
-    flags = idaapi.PLUGIN_HIDE
+    flags = ida_idaapi.PLUGIN_HIDE
     comment = "SwiftIDA Plugin"
     help = "SwiftIDA Plugin"
     wanted_name = "SwiftIDA"
@@ -40,46 +39,46 @@ class SwiftIDA(ida_idaapi.plugin_t):
 
         if len(arch_ret_regs) == 0:
             # unsupported arch
-            return idaapi.PLUGIN_SKIP
+            return ida_idaapi.PLUGIN_SKIP
 
         action_name = f"SwiftIDA:convert_to_usercall"
-        action = idaapi.action_desc_t(
+        action = ida_kernwin.action_desc_t(
             action_name,
             "Convert to usercall",
             generic_handler(lambda: self.convert_to_usercall()),
         )
-        idaapi.register_action(action)
+        ida_kernwin.register_action(action)
         action_names.append(action_name)
 
         arg_names = {0: "self", 1: "error_return", 2: "async_context"}
         for i in range(0, 3):
             action_name = f"SwiftIDA:add_arg_{arg_names[i]}"
-            action = idaapi.action_desc_t(
+            action = ida_kernwin.action_desc_t(
                 action_name,
                 f"Add argument {arg_names[i]}",
                 generic_handler(lambda i=i: self.add_callee_arg(i)),
             )
-            idaapi.register_action(action)
+            ida_kernwin.register_action(action)
             action_names.append(action_name)
 
         for i in range(2, len(arch_ret_regs) + 1):
             action_name = f"SwiftIDA:make_multi_{i}"
-            action = idaapi.action_desc_t(
+            action = ida_kernwin.action_desc_t(
                 action_name,
                 f"Make multi-return tuple{i}",
                 generic_handler(lambda i=i: self.make_multi_return(i)),
             )
-            idaapi.register_action(action)
+            ida_kernwin.register_action(action)
             action_names.append(action_name)
 
         self.ui_hooks = SwiftIDAUIHooks()
         self.ui_hooks.hook()
 
-        return idaapi.PLUGIN_KEEP
+        return ida_idaapi.PLUGIN_KEEP
 
     def parse_current_func_type(self):
         global func_regex, arch_arg_regs
-        ea = idc.get_screen_ea()
+        ea = ida_kernwin.get_screen_ea()
         type: str = idc.get_type(ea)
         if type is None:
             ida_kernwin.warning("The selected item is not a function definition!")
@@ -117,7 +116,7 @@ class SwiftIDA(ida_idaapi.plugin_t):
         new_type = f"{' '.join(base)} __usercall func{ret_part}({', '.join(args)})"
         print(f">>>SwiftIDA: New type: {new_type}")
 
-        ea = idc.get_screen_ea()
+        ea = ida_kernwin.get_screen_ea()
         result = idc.SetType(ea, new_type)
         if result != 1:
             raise Exception("Failed to set type")
@@ -166,7 +165,7 @@ class SwiftIDA(ida_idaapi.plugin_t):
         self.update_current_func_type(base, ret_regs, args)
 
 
-class SwiftIDAUIHooks(idaapi.UI_Hooks):
+class SwiftIDAUIHooks(ida_kernwin.UI_Hooks):
     def finish_populating_widget_popup(self, form, popup):
         global action_names
         if ida_kernwin.get_widget_type(form) not in [
@@ -175,13 +174,13 @@ class SwiftIDAUIHooks(idaapi.UI_Hooks):
         ]:
             return
         for name in action_names:
-            idaapi.attach_action_to_popup(form, popup, name, "SwiftIDA/")
+            ida_kernwin.attach_action_to_popup(form, popup, name, "SwiftIDA/")
 
 
 def generic_handler(callback):
-    class Handler(idaapi.action_handler_t):
+    class Handler(ida_kernwin.action_handler_t):
         def __init__(self):
-            idaapi.action_handler_t.__init__(self)
+            ida_kernwin.action_handler_t.__init__(self)
 
         def activate(self, ctx):
             try:
@@ -192,7 +191,7 @@ def generic_handler(callback):
             return 1
 
         def update(self, ctx):
-            return idaapi.AST_ENABLE_ALWAYS
+            return ida_kernwin.AST_ENABLE_ALWAYS
 
     return Handler()
 
