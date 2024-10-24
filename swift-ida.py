@@ -1,8 +1,9 @@
 import ida_idaapi
 import ida_kernwin
+import ida_ida
+import ida_hexrays
 import idc
 import re
-import ida_ida
 
 # TODO: This is very rudimentary and prone to breakage, e.g. on lambda functions
 # Ideally, we would want to implement a proper C grammar
@@ -45,7 +46,7 @@ class SwiftIDA(ida_idaapi.plugin_t):
         action = ida_kernwin.action_desc_t(
             action_name,
             "Convert to usercall",
-            generic_handler(lambda: self.convert_to_usercall()),
+            generic_handler(lambda ea: self.convert_to_usercall(ea)),
         )
         ida_kernwin.register_action(action)
         action_names.append(action_name)
@@ -56,7 +57,7 @@ class SwiftIDA(ida_idaapi.plugin_t):
             action = ida_kernwin.action_desc_t(
                 action_name,
                 f"Add argument {arg_names[i]}",
-                generic_handler(lambda i=i: self.add_callee_arg(i)),
+                generic_handler(lambda ea, i=i: self.add_callee_arg(ea, i)),
             )
             ida_kernwin.register_action(action)
             action_names.append(action_name)
@@ -66,7 +67,7 @@ class SwiftIDA(ida_idaapi.plugin_t):
             action = ida_kernwin.action_desc_t(
                 action_name,
                 f"Make multi-return tuple{i}",
-                generic_handler(lambda i=i: self.make_multi_return(i)),
+                generic_handler(lambda ea, i=i: self.make_multi_return(ea, i)),
             )
             ida_kernwin.register_action(action)
             action_names.append(action_name)
@@ -76,9 +77,8 @@ class SwiftIDA(ida_idaapi.plugin_t):
 
         return ida_idaapi.PLUGIN_KEEP
 
-    def parse_current_func_type(self):
+    def parse_current_func_type(self, ea):
         global func_regex, arch_arg_regs
-        ea = ida_kernwin.get_screen_ea()
         type: str = idc.get_type(ea)
         if type is None:
             ida_kernwin.warning("The selected item is not a function definition!")
@@ -111,40 +111,41 @@ class SwiftIDA(ida_idaapi.plugin_t):
 
         return base, ret_regs, args
 
-    def update_current_func_type(self, base, ret_regs, args):
+    def update_current_func_type(self, ea, base, ret_regs, args):
         ret_part = f"@<{', '.join(ret_regs)}>" if len(ret_regs) > 0 else ""
         new_type = f"{' '.join(base)} __usercall func{ret_part}({', '.join(args)})"
         print(f">>>SwiftIDA: New type: {new_type}")
 
-        ea = ida_kernwin.get_screen_ea()
         result = idc.SetType(ea, new_type)
         if result != 1:
             raise Exception("Failed to set type")
 
         print(f">>>SwiftIDA: Type changed successfully")
 
-    def add_callee_arg(self, i: int):
+    def add_callee_arg(self, ea, i: int) -> bool:
         global arch_special_regs
 
-        base, ret_regs, args = self.parse_current_func_type()
+        base, ret_regs, args = self.parse_current_func_type(ea)
         if base is None or ret_regs is None or args is None:
-            return
+            return False
 
         if not any(f"@<{arch_special_regs[i]}>" in arg for arg in args):
             args.append(f"__int64@<{arch_special_regs[i]}>")
 
-        self.update_current_func_type(base, ret_regs, args)
+        self.update_current_func_type(ea, base, ret_regs, args)
+        return True
 
-    def convert_to_usercall(self):
+    def convert_to_usercall(self, ea) -> bool:
         global arch_ret_regs
 
-        base, ret_regs, args = self.parse_current_func_type()
+        base, ret_regs, args = self.parse_current_func_type(ea)
         if base is None or ret_regs is None or args is None:
-            return
+            return False
 
-        self.update_current_func_type(base, ret_regs, args)
+        self.update_current_func_type(ea, base, ret_regs, args)
+        return True
 
-    def make_multi_return(self, i: int):
+    def make_multi_return(self, ea, i: int) -> bool:
         global arch_ret_regs
 
         struct_name = f"tuple{i}"
@@ -154,15 +155,16 @@ class SwiftIDA(ida_idaapi.plugin_t):
                 idc.add_struc_member(struct_id, f"o{j}", -1, idc.FF_QWORD, -1, 8)
             print(f">>>SwiftIDA: Created struct {struct_name}")
 
-        base, ret_regs, args = self.parse_current_func_type()
+        base, ret_regs, args = self.parse_current_func_type(ea)
         if base is None or ret_regs is None or args is None:
-            return
+            return False
 
         base[0] = struct_name
 
         ret_regs = [f"{j*8}:{arch_ret_regs[j]}" for j in range(i)]
 
-        self.update_current_func_type(base, ret_regs, args)
+        self.update_current_func_type(ea, base, ret_regs, args)
+        return True
 
 
 class SwiftIDAUIHooks(ida_kernwin.UI_Hooks):
@@ -184,7 +186,22 @@ def generic_handler(callback):
 
         def activate(self, ctx):
             try:
-                callback()
+                if ctx.widget_type == ida_kernwin.BWN_PSEUDOCODE:
+                    vu = ida_hexrays.get_widget_vdui(ctx.widget)
+                    if vu.item.citype == ida_hexrays.VDI_FUNC:
+                        ea = vu.item.f.entry_ea
+                    else:
+                        ea = vu.item.e.obj_ea
+                else:
+                    #TODO: Support call operand in disassembly view
+                    ea = ida_kernwin.get_screen_ea()
+
+                result = callback(ea)
+
+                if result:
+                    if ctx.widget_type == ida_kernwin.BWN_PSEUDOCODE:
+                        vu = ida_hexrays.get_widget_vdui(ctx.widget)
+                        vu.refresh_view(True)
             except Exception as e:
                 ida_kernwin.warning("There was an error, check logs")
                 raise e
