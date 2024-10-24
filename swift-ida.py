@@ -148,7 +148,7 @@ class SwiftIDA(ida_idaapi.plugin_t):
     def make_multi_return(self, ea, i: int) -> bool:
         global arch_ret_regs
 
-        struct_name = f"tuple{i}"
+        struct_name = f"swiftida_tuple{i}"
         if idc.get_struc_id(struct_name) == idc.BADADDR:
             struct_id = idc.add_struc(-1, struct_name, 0)
             for j in range(i):
