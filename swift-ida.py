@@ -104,6 +104,8 @@ class SwiftIDA(ida_idaapi.plugin_t):
                 f"{arg.split('@')[0]}@<{arch_arg_regs[i]}>"
                 for i, arg in enumerate(args)
             ]
+        if "__swiftcall" in base:
+            raise Exception("__swiftcall not supported, remove it first")
 
         for item in ["__fastcall", "__usercall"]:
             if item in base:
