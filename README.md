@@ -1,11 +1,6 @@
 # SwiftIDA
 
-This is a simple plugin for IDA to aid with reverse engineering languages that have multiple return values and non-standard calling conventions. While IDA does not automatically detect such patterns, it allows you to implement them yourself using the `__usercall` calling convention. This plugin defines a set of shortcuts to easily change a function's signature and match Swift's calling convention. With minor changes, it should also work with Go, Rust, etc.
-
-## Supported architectures
-
-- arm64
-- x86_64
+This is a simple plugin for IDA to aid with reverse engineering languages that have multiple return values and non-standard calling conventions. It does this by defining a set of shortcuts to easily change a function's calling convention and make it return a multi-value tuple. Tested on Swift and Golang, but should work on many more languages too.
 
 ## Usage
 
@@ -38,3 +33,4 @@ Download `swift-ida.py` and drop it in your IDA's `plugins` folder. After that, 
 - https://github.com/swiftlang/swift/blob/main/docs/ABI/CallConvSummary.rst
 - https://hex-rays.com/blog/igors-tip-of-the-week-107-multiple-return-values
 - https://hex-rays.com/blog/igors-tip-of-the-week-51-custom-calling-conventions
+- https://docs.hex-rays.com/user-guide/user-interface/menu-bar/edit/functions#set-function-item-type
